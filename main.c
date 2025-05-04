@@ -24,6 +24,7 @@ Lucas Corlete Alves de Melo - NUSP: 13676461
 #define NUM_THREADS 4
 #define CHUNK_SIZE 100
 
+// Struct with char value and int frequency
 typedef struct {
     int f;
     char c;
@@ -36,6 +37,7 @@ void merge(char_freq* array, int start, int end, int mid) {
     int position_second_half = mid + 1;
     char_freq* copy = malloc((end - start + 1) * sizeof(char_freq));
 
+    // Sorts first by frequency then by char value
     while(position_first_half <= mid && position_second_half <= end) {
         if(array[position_first_half].f == array[position_second_half].f) {
             if(array[position_first_half].c < array[position_second_half].c)
@@ -59,6 +61,7 @@ void merge(char_freq* array, int start, int end, int mid) {
     for(int i = 0; i <= end - position_second_half; i++)
         copy[position_copy + i] = array[position_second_half + i];
 
+    // Moves the copy to the original array
     #pragma omp simd
     for(int i = start; i <= end; i++)
         array[i] = copy[i - start];
@@ -72,6 +75,7 @@ void merge_sort(char_freq* array, int start, int end, int remaining_threads) {
     if(start == end)
         return;
 
+    // Parallel merge sort
     if(remaining_threads == 1) {
         #pragma omp task shared(array)
         merge_sort(array, start, mid, remaining_threads/2);
@@ -80,11 +84,14 @@ void merge_sort(char_freq* array, int start, int end, int remaining_threads) {
         merge_sort(array, mid + 1, end, remaining_threads/2);
 
         #pragma omp taskwait
-    } else {
+    }
+    // Sequential merge sort
+    else {
         merge_sort(array, start, mid, remaining_threads/2);
         merge_sort(array, mid + 1, end, remaining_threads/2);
     }
 
+    // Merges the two sorted halfs
     merge(array, start, end, mid);
 }
 
