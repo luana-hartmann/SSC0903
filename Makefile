@@ -1,18 +1,17 @@
 # Compiler and flags
 CC = gcc
-CFLAGS = -fopenmp -Wall
+CFLAGS = -O3 -fopt-info-vec-optimized -fopenmp
 
 # Declare phony targets to force execution
 .PHONY: all run
 
-# Default target: compile
 all:
-	$(CC) $(CFLAGS) -o diga_freq main.c
+	$(CC) $(CFLAGS) main.c -o main -g
 
 # Run with default input
-run: diga_freq
-	./diga_freq < test_input.txt
+run:
+	./main < test_input.txt
 
 # Generic run with input file
-%: diga_freq
-	./diga_freq < $@
+%:
+	./main < $@
