@@ -12,16 +12,11 @@ Lucas Corlete Alves de Melo - NUSP: 13676461
 #include <string.h>
 #include <omp.h>
 
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
-#include<omp.h>
-
 // Important constants
 #define MIN_CHAR 32
 #define MAX_CHAR 126
 #define INPUT_SIZE 1001
-#define NUM_THREADS 4
+#define NUM_THREADS 2
 #define CHUNK_SIZE 100
 
 // Struct with char value and int frequency
@@ -95,6 +90,15 @@ void merge_sort(char_freq* array, int start, int end, int remaining_threads) {
     merge(array, start, end, mid);
 }
 
+int compare_char_freq(const void* a, const void* b) {
+    const char_freq* x = (const char_freq*) a;
+    const char_freq* y = (const char_freq*) b;
+
+    if (x->f == y->f)
+        return (x->c - y->c);  // ascending by character
+    return (x->f - y->f);      // ascending by frequency
+}
+
 void process_string(char_freq* frequency, char* string) {
     // Allocates a vector for each thread to receive the char frequency and sets its frequencies to 0
     int** count = malloc(NUM_THREADS * sizeof(int*));
@@ -102,7 +106,7 @@ void process_string(char_freq* frequency, char* string) {
         count[i] = calloc(MAX_CHAR - MIN_CHAR, sizeof(int));
     int string_size = strlen(string);
 
-    #pragma omp parallel for schedule(dynamic, CHUNK_SIZE)
+    #pragma omp parallel for num_threads(NUM_THREADS) schedule(guided, CHUNK_SIZE)
     for(int i = 0; i < string_size; i++) {
         // Increases frequency corresponding to the character in the string (and the thread executing)
         ++count[omp_get_thread_num()][string[i] - MIN_CHAR];
@@ -125,8 +129,20 @@ void process_string(char_freq* frequency, char* string) {
     }
     free(count);
 
+    /*int string_size = strlen(string);
+    for(int i = 0; i < string_size; i++) {
+        // Increases frequency corresponding to the character in the string (and the thread executing)
+        ++frequency[string[i] - MIN_CHAR].f;
+    }
+    #pragma omp simd
+    for(int j = MIN_CHAR; j < MAX_CHAR; j++) {
+        frequency[j - MIN_CHAR].c = j;
+    }
+    free(string);*/
+
     // Sort frequency vector
     merge_sort(frequency, 0, MAX_CHAR - MIN_CHAR - 1, NUM_THREADS);
+    //qsort(frequency, MAX_CHAR - MIN_CHAR, sizeof(char_freq), compare_char_freq);
 }
 
 void sanitize_string(char* string) {
@@ -186,7 +202,7 @@ int main() {
             time = omp_get_wtime() - time - overhead;
 
             // Print expected output (comment for big inputs)
-            for(int i = 0; i < count; i++) {
+            /*for(int i = 0; i < count; i++) {
                 for(int j = 0; j < MAX_CHAR - MIN_CHAR; j++) {
                     char_freq current = frequencies[i][j];
                     if(current.f == 0)
@@ -196,7 +212,7 @@ int main() {
                 free(frequencies[i]);
                 printf("\n");
             }
-            free(frequencies);
+            free(frequencies);*/
 
             printf("\nTime: %lf\n", time);
         }
