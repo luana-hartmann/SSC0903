@@ -123,7 +123,6 @@ void process_string(char_freq* frequency, char* string) {
         // Generates new tasks to count the frequencies, using the already generated threads
         #pragma omp task firstprivate(i, string_size) shared(string, count)
         {
-            printf("Thread %d: %s\n\n", omp_get_thread_num(), string);
             int end = i + 100;
             if(end > string_size)
                 end = string_size;

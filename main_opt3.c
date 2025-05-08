@@ -131,12 +131,14 @@ void process_string(char_freq* frequency, char* string) {
     int string_size = strlen(string);
 
     // If string size is less than an arbitrary size, executes sequentially
-    if(string_size < 500) {
+    /*if(string_size < 500) {
         int string_size = strlen(string);
         for(int i = 0; i < string_size; i++) {
             // Increases frequency corresponding to the character in the string (and the thread executing)
             ++frequency[string[i] - MIN_CHAR].f;
         }
+
+        // Sets the char values in the frequency struct
         #pragma omp simd
         for(int j = MIN_CHAR; j < MAX_CHAR; j++) {
             frequency[j - MIN_CHAR].c = j;
@@ -145,45 +147,45 @@ void process_string(char_freq* frequency, char* string) {
 
         qsort(frequency, MAX_CHAR - MIN_CHAR, sizeof(char_freq), compare_char_freq);
         return;
-    }
+    }*/
 
-    // Allocates a vector for each thread to receive the char frequency and sets its frequencies to 0 (more efficient than lock / unlock)
-    int** count = malloc(NUM_THREADS * sizeof(int*));
-    for(int i = 0; i < NUM_THREADS; i++)
-        count[i] = calloc(MAX_CHAR - MIN_CHAR, sizeof(int));
+    // Creates a lock for each possible char
+    omp_lock_t lock[MAX_CHAR - MIN_CHAR];
+    #pragma omp simd
+    for(int i = 0; i < MAX_CHAR - MIN_CHAR; i++)
+        omp_init_lock(&(lock[i]));
 
     // Divides the string in chunks to be processed
     for(int i = 0; i < string_size; i+=100) {
         // Generates new tasks to count the frequencies, using the already generated threads
-        #pragma omp task firstprivate(i, string_size) shared(string, count)
+        #pragma omp task firstprivate(i, string_size) shared(string, frequency)
         {
             int end = i + 100;
             if(end > string_size)
                 end = string_size;
-            // Increases frequency corresponding to the character in the string (and the thread executing)
-            for(int j = i; j < end; j++)
-                ++count[omp_get_thread_num()][string[j] - MIN_CHAR];
+            // Increases frequency corresponding to the character in the string
+            for(int j = i; j < end; j++) {
+                omp_set_lock(&(lock[string[j] - MIN_CHAR]));
+                ++frequency[string[j] - MIN_CHAR].f;
+                omp_unset_lock(&(lock[string[j] - MIN_CHAR]));
+            }
         }
     }
     #pragma omp taskwait
+
+    // Destroys locks
+    #pragma omp simd
+    for(int i = 0; i < MAX_CHAR - MIN_CHAR; i++)
+        omp_destroy_lock(&(lock[i]));
     
     // Frees string received as input
     free(string);
 
-    // Reduction of the count vector using simd extension, putting the information in the frequency vector
+    // Sets the char values in the frequency struct
     #pragma omp simd
     for(int j = MIN_CHAR; j < MAX_CHAR; j++) {
         frequency[j - MIN_CHAR].c = j;
     }
-    for(int i = 0; i < NUM_THREADS; i++) {
-        // Sets the char values in the frequency struct
-        #pragma omp simd
-        for(int j = 0; j < MAX_CHAR - MIN_CHAR; j++) {
-            frequency[j].f += count[i][j];
-        }
-        free(count[i]);
-    }
-    free(count);
 
     // Sort frequency vector
     merge_sort(frequency, 0, MAX_CHAR - MIN_CHAR - 1, NUM_THREADS);
