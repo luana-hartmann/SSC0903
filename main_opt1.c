@@ -14,9 +14,8 @@ Lucas Corlete Alves de Melo - NUSP: 13676461
 
 // Important constants
 #define MIN_CHAR 32
-#define MAX_CHAR 126
+#define MAX_CHAR 127 // One above the max admissable char
 #define INPUT_SIZE 1001
-#define NUM_THREADS 2
 #define CHUNK_SIZE 100
 
 // Struct with char value and int frequency
@@ -54,7 +53,6 @@ void process_string(char_freq* frequency, char* string) {
     }
 
     // Sets the char values in the frequency struct
-    #pragma omp simd
     for(int j = MIN_CHAR; j < MAX_CHAR; j++) {
         frequency[j - MIN_CHAR].c = j;
     }
@@ -80,66 +78,57 @@ int main() {
     // Allocates memory for the input
     char* input = malloc(INPUT_SIZE * sizeof(char));
 
-    // Makes parallel  block
-    #pragma omp parallel num_threads(NUM_THREADS)
-    {
-        // Executes while EOF is not reached
-        #pragma omp single
-        {
-            // Step size for the vector with the frequencies to print later
-            int step = 10000;
-            int num_steps = 1;
-            char_freq** frequencies = malloc(num_steps * step * sizeof(char_freq*));
+    // Step size for the vector with the frequencies to print later
+    int step = 10000;
+    int num_steps = 1;
+    char_freq** frequencies = malloc(num_steps * step * sizeof(char_freq*));
 
-            // Calculates time
-            double overhead = omp_get_wtime();
-            overhead = omp_get_wtime() - overhead;
-            double time = omp_get_wtime();
-            
-            int count = 0;
-            // Generates a task for each string
-            while(fgets(input, INPUT_SIZE, stdin) != NULL) {
-                // realloc frequencies vector
-                if(count >= num_steps * step) {
-                    ++num_steps;
-                    frequencies = realloc(frequencies, num_steps * step * sizeof(char_freq*));
-                }
-                
-                // Removes '\n' and '\r' from the string
-                sanitize_string(input);
-                
-                // Duplicates string to use in the task
-                char* string = strdup(input);
-                
-                // Takes imutable frequency pointer to use in the task
-                char_freq* frequency = frequencies[count] = calloc(MAX_CHAR - MIN_CHAR, sizeof(char_freq));
-                #pragma omp task shared(frequency, string)
-                {
-                    // Creates a task to process each input line in parallel
-                    process_string(frequency, string);
-                }
-                // Increases the count of inputs
-                ++count;
-            }
-            #pragma omp taskwait
-            time = omp_get_wtime() - time - overhead;
+    int count = 0;
 
-            // Print expected output (comment for big inputs)
-            /*for(int i = 0; i < count; i++) {
-                for(int j = 0; j < MAX_CHAR - MIN_CHAR; j++) {
-                    char_freq current = frequencies[i][j];
-                    if(current.f == 0)
-                        continue;
-                    printf("%d %d\n", current.c, current.f);
-                }
-                free(frequencies[i]);
-                printf("\n");
-            }
-            free(frequencies);*/
-
-            printf("\nTime: %lf\n", time);
+    // Calculates time
+    double overhead = omp_get_wtime();
+    overhead = omp_get_wtime() - overhead;
+    double time = omp_get_wtime();
+    
+    // Executes while EOF is not reached
+    while(fgets(input, INPUT_SIZE, stdin) != NULL) {
+        // realloc frequencies vector
+        if(count >= num_steps * step) {
+            ++num_steps;
+            frequencies = realloc(frequencies, num_steps * step * sizeof(char_freq*));
         }
+        
+        // Removes '\n' and '\r' from the string
+        sanitize_string(input);
+        
+        // Duplicates string to use in the task
+        char* string = strdup(input);
+        
+        // Takes imutable frequency pointer to use in the task
+        char_freq* frequency = frequencies[count] = calloc(MAX_CHAR - MIN_CHAR, sizeof(char_freq));
+
+        // Creates a task to process each input line in parallel
+        process_string(frequency, string);
+
+        // Increases the count of inputs
+        ++count;
     }
+    time = omp_get_wtime() - time - overhead;
+
+    // Print expected output (comment for big inputs)
+    /*for(int i = 0; i < count; i++) {
+        for(int j = 0; j < MAX_CHAR - MIN_CHAR; j++) {
+            char_freq current = frequencies[i][j];
+            if(current.f == 0)
+                continue;
+            printf("%d %d\n", current.c, current.f);
+        }
+        free(frequencies[i]);
+        printf("\n");
+    }
+    free(frequencies);*/
+
+    printf("%lf\n", time);
 
     // Frees input at the end of the program
     free(input);
