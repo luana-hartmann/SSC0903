@@ -79,29 +79,30 @@ void merge(char_freq* array, int start, int end, int mid) {
  * @param array array to be sorted
  * @param start start of the range to be sorted
  * @param end end of the range to be sorted
- * @param remaining_threads number of threads in which to execute the merge sort
+ * @param task_number number of tasks in which to execute the merge sort
  */
-void merge_sort(char_freq* array, int start, int end, int remaining_threads) {
+void merge_sort(char_freq* array, int start, int end, int task_number) {
     if(start == end)
         return;
 
     int mid = (end + start) / 2;
 
     // Parallel merge sort when the current level of subdivisions is closest to the chosen number of threads
-    if(remaining_threads == 1) {
+    if(task_number == 1) {
+        // Runs merge sort tasks in a taskgroup
         #pragma omp taskgroup
         {
             #pragma omp task shared(array)
-            merge_sort(array, start, mid, remaining_threads/2);
+            merge_sort(array, start, mid, task_number/2);
 
             #pragma omp task shared(array)
-            merge_sort(array, mid + 1, end, remaining_threads/2);
+            merge_sort(array, mid + 1, end, task_number/2);
         }
     }
     // Sequential merge sort for all other levels of the merge tree
     else {
-        merge_sort(array, start, mid, remaining_threads/2);
-        merge_sort(array, mid + 1, end, remaining_threads/2);
+        merge_sort(array, start, mid, task_number/2);
+        merge_sort(array, mid + 1, end, task_number/2);
     }
 
     // Merges the two sorted halves
@@ -122,7 +123,7 @@ void process_string(char_freq* frequency, char* string) {
     for(int i = 0; i < MAX_CHAR - MIN_CHAR; i++)
         omp_init_lock(&(lock[i]));
 
-    // Divides the string in chunks to be processed 250 sized, runs then in a taskgroup
+    // Divides the string in chunks to be processed (250 sized), runs then in a taskgroup
     #pragma omp taskgroup
     {
         for(int i = 0; i < string_size; i+=CHUNK_SIZE) {
