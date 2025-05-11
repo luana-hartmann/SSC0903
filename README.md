@@ -13,7 +13,6 @@ For each line of input:
 
 ````
 AACBAB
-
 312323
 ````
 
@@ -42,7 +41,7 @@ This will generate three different versions of the solution.
 - `main2` presents an algorithm that processes each line in parallel, present in `main_opt2`;
 - `main3` brings a fully parallelized algorithm, which code is in `main_opt3`.
 
-You can find more information about the algorithms and their performances in the document `Relatório.pdf`.
+You can find more information about the algorithms and their performances in the document `Relatório.pdf` (please read it to see our findings).
 
 ## How to run
 
