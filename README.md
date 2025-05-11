@@ -13,7 +13,6 @@ For each line of input:
 
 ````
 AACBAB
-
 312323
 ````
 
