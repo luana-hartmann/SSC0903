@@ -199,31 +199,34 @@ int main() {
             overhead = omp_get_wtime() - overhead;
             double time = omp_get_wtime();
 
-            // Generates a task for each string
-            while(fgets(input, INPUT_SIZE, stdin) != NULL) {
-                // realloc frequencies vector
-                if(count >= num_steps * step) {
-                    ++num_steps;
-                    frequencies = realloc(frequencies, num_steps * step * sizeof(char_freq*));
+            // Generates a task for each string, inside a taskgroup
+            #pragma omp taksgroup
+            {
+                while(fgets(input, INPUT_SIZE, stdin) != NULL) {
+                    // realloc frequencies vector
+                    if(count >= num_steps * step) {
+                        ++num_steps;
+                        frequencies = realloc(frequencies, num_steps * step * sizeof(char_freq*));
+                    }
+                    
+                    // Removes '\n' and '\r' from the string
+                    sanitize_string(input);
+                    
+                    // Duplicates string to use in the task
+                    char* string = strdup(input);
+                    
+                    // Takes imutable frequency pointer to use in the task
+                    char_freq* frequency = frequencies[count] = calloc(MAX_CHAR - MIN_CHAR, sizeof(char_freq));
+                    #pragma omp task shared(frequency, string)
+                    {
+                        // Creates a task to process each input line in parallel
+                        process_string(frequency, string);
+                    }
+                    // Increases the count of inputs
+                    ++count;
                 }
-                
-                // Removes '\n' and '\r' from the string
-                sanitize_string(input);
-                
-                // Duplicates string to use in the task
-                char* string = strdup(input);
-                
-                // Takes imutable frequency pointer to use in the task
-                char_freq* frequency = frequencies[count] = calloc(MAX_CHAR - MIN_CHAR, sizeof(char_freq));
-                #pragma omp task shared(frequency, string)
-                {
-                    // Creates a task to process each input line in parallel
-                    process_string(frequency, string);
-                }
-                // Increases the count of inputs
-                ++count;
             }
-            #pragma omp taskwait
+            // Measures execution time (without printfs)
             time = omp_get_wtime() - time - overhead;
 
             // Print expected output (comment for big inputs)
