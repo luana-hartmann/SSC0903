@@ -50,7 +50,10 @@ void process_string(char_freq* frequency, char* string) {
 
     // Increases frequency corresponding to the character in the string
     for(int i = 0; i < string_size; i++) {
-        ++frequency[string[i] - MIN_CHAR].f;
+        unsigned char ch = string[i];
+        if (ch < MIN_CHAR || ch >= MAX_CHAR) // checks for invalid chars
+            continue;
+        ++frequency[ch - MIN_CHAR].f;
     }
 
     // Sets the char values in the frequency struct
@@ -126,7 +129,7 @@ int main() {
             time = omp_get_wtime() - time - overhead;
 
             // Print expected output (comment for big inputs)
-            /*for(int i = 0; i < count; i++) {
+            for(int i = 0; i < count; i++) {
                 for(int j = 0; j < MAX_CHAR - MIN_CHAR; j++) {
                     char_freq current = frequencies[i][j];
                     if(current.f == 0)
@@ -136,9 +139,9 @@ int main() {
                 free(frequencies[i]);
                 printf("\n");
             }
-            free(frequencies);*/
+            free(frequencies);
 
-            printf("%lf\n", time);
+            // printf("%lf\n", time); // Uncomment if you want to see the execution time
         }
     }
 

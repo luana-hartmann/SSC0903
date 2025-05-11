@@ -16,8 +16,8 @@ Lucas Corlete Alves de Melo - NUSP: 13676461
 #define MIN_CHAR 32
 #define MAX_CHAR 127 // One above the max admissable char
 #define INPUT_SIZE 1001
-#define NUM_THREADS 2
-#define CHUNK_SIZE 100
+#define NUM_THREADS 4
+#define CHUNK_SIZE 250
 
 // Struct with char value and int frequency
 typedef struct {
@@ -82,20 +82,21 @@ void merge(char_freq* array, int start, int end, int mid) {
  * @param remaining_threads number of threads in which to execute the merge sort
  */
 void merge_sort(char_freq* array, int start, int end, int remaining_threads) {
-    int mid = (end + start) / 2;
-
     if(start == end)
         return;
 
+    int mid = (end + start) / 2;
+
     // Parallel merge sort when the current level of subdivisions is closest to the chosen number of threads
     if(remaining_threads == 1) {
-        #pragma omp task shared(array)
-        merge_sort(array, start, mid, remaining_threads/2);
+        #pragma omp taskgroup
+        {
+            #pragma omp task shared(array)
+            merge_sort(array, start, mid, remaining_threads/2);
 
-        #pragma omp task shared(array)
-        merge_sort(array, mid + 1, end, remaining_threads/2);
-
-        #pragma omp taskwait
+            #pragma omp task shared(array)
+            merge_sort(array, mid + 1, end, remaining_threads/2);
+        }
     }
     // Sequential merge sort for all other levels of the merge tree
     else {
@@ -121,23 +122,29 @@ void process_string(char_freq* frequency, char* string) {
     for(int i = 0; i < MAX_CHAR - MIN_CHAR; i++)
         omp_init_lock(&(lock[i]));
 
-    // Divides the string in chunks to be processed
-    for(int i = 0; i < string_size; i+=100) {
-        // Generates new tasks to count the frequencies, using the already generated threads
-        #pragma omp task firstprivate(i, string_size) shared(string, frequency)
-        {
-            int end = i + 100;
-            if(end > string_size)
-                end = string_size;
-            // Increases frequency corresponding to the character in the string
-            for(int j = i; j < end; j++) {
-                omp_set_lock(&(lock[string[j] - MIN_CHAR]));
-                ++frequency[string[j] - MIN_CHAR].f;
-                omp_unset_lock(&(lock[string[j] - MIN_CHAR]));
+    // Divides the string in chunks to be processed 250 sized, runs then in a taskgroup
+    #pragma omp taskgroup
+    {
+        for(int i = 0; i < string_size; i+=CHUNK_SIZE) {
+            // Generates new tasks to count the frequencies, using the already generated threads
+            #pragma omp task firstprivate(i, string_size) shared(string, frequency, lock)
+            {
+                int end = i + CHUNK_SIZE;
+                if(end > string_size)
+                    end = string_size;
+                // Increases frequency corresponding to the character in the string
+                for(int j = i; j < end; j++) {
+                    unsigned char ch = string[j]; // checks for invalid chars
+                    if (ch < MIN_CHAR || ch >= MAX_CHAR)
+                        continue;
+                    
+                    omp_set_lock(&(lock[ch - MIN_CHAR]));
+                    ++frequency[ch - MIN_CHAR].f;
+                    omp_unset_lock(&(lock[ch - MIN_CHAR]));
+                }
             }
         }
     }
-    #pragma omp taskwait
 
     // Destroys locks
     #pragma omp simd
@@ -153,10 +160,14 @@ void process_string(char_freq* frequency, char* string) {
         frequency[j - MIN_CHAR].c = j;
     }
 
-    // Sort frequency vector
-    merge_sort(frequency, 0, MAX_CHAR - MIN_CHAR - 1, NUM_THREADS);
+    // Sort frequency vector (in 4 predefined parallel executions)
+    merge_sort(frequency, 0, MAX_CHAR - MIN_CHAR - 1, 4);
 }
 
+/**
+ * @brief Removes newline and carrier return chars from the given string
+ * @param string input string
+ */
 void sanitize_string(char* string) {
     int string_size = strlen(string);
     string[string_size - 1] = '\0';
@@ -215,7 +226,7 @@ int main() {
             time = omp_get_wtime() - time - overhead;
 
             // Print expected output (comment for big inputs)
-            /*for(int i = 0; i < count; i++) {
+            for(int i = 0; i < count; i++) {
                 for(int j = 0; j < MAX_CHAR - MIN_CHAR; j++) {
                     char_freq current = frequencies[i][j];
                     if(current.f == 0)
@@ -225,9 +236,9 @@ int main() {
                 free(frequencies[i]);
                 printf("\n");
             }
-            free(frequencies);*/
+            free(frequencies);
 
-            printf("%lf\n", time);
+            // printf("%lf\n", time); // Uncomment if you want to see the execution time
         }
     }
 

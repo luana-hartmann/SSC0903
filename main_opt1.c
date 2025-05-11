@@ -49,14 +49,17 @@ void process_string(char_freq* frequency, char* string) {
 
     // Increases frequency corresponding to the character in the string
     for(int i = 0; i < string_size; i++) {
+        unsigned char ch = string[i];
+        if (ch < MIN_CHAR || ch >= MAX_CHAR) // checks for invalid chars
+            continue;
         ++frequency[string[i] - MIN_CHAR].f;
     }
+    free(string);
 
     // Sets the char values in the frequency struct
     for(int j = MIN_CHAR; j < MAX_CHAR; j++) {
         frequency[j - MIN_CHAR].c = j;
     }
-    free(string);
 
     // Sorts frequency vector using quicksort
     qsort(frequency, MAX_CHAR - MIN_CHAR, sizeof(char_freq), compare_char_freq);
@@ -107,7 +110,7 @@ int main() {
         // Takes imutable frequency pointer to use in the task
         char_freq* frequency = frequencies[count] = calloc(MAX_CHAR - MIN_CHAR, sizeof(char_freq));
 
-        // Creates a task to process each input line in parallel
+        // Processes each input line
         process_string(frequency, string);
 
         // Increases the count of inputs
@@ -116,7 +119,7 @@ int main() {
     time = omp_get_wtime() - time - overhead;
 
     // Print expected output (comment for big inputs)
-    /*for(int i = 0; i < count; i++) {
+    for(int i = 0; i < count; i++) {
         for(int j = 0; j < MAX_CHAR - MIN_CHAR; j++) {
             char_freq current = frequencies[i][j];
             if(current.f == 0)
@@ -126,9 +129,9 @@ int main() {
         free(frequencies[i]);
         printf("\n");
     }
-    free(frequencies);*/
+    free(frequencies);
 
-    printf("%lf\n", time);
+    // printf("%lf\n", time); // Uncomment if you want to see the execution time
 
     // Frees input at the end of the program
     free(input);
